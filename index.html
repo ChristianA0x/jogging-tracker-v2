@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <title>Interactive Jogging & Activity Tracker (Netlify Version)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Styles are the same as the previous version -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        .summary-card { background-color: white; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); border: 1px solid #e5e7eb; }
+        .table-input, .table-select { width: 100%; padding: 0.5rem; border: 1px solid transparent; border-radius: 0.375rem; background-color: #f9fafb; transition: border-color 0.2s; }
+        .table-input:focus, .table-select:focus { outline: none; border-color: #3b82f6; background-color: white; }
+        .table-input:disabled, .table-select:disabled { background-color: #eff6ff; cursor: not-allowed; }
+        .completed-row { background-color: #f0fdf4; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s ease infinite; margin: 1rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .insights-result ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.5rem; }
+        .insights-result li { margin-bottom: 0.25rem; }
+        .chart-container { position: relative; height: 40vh; max-height: 350px; width: 100%; }
+        #week-selector { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding-right: 2rem; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.5em 1.5em; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Jogging & Activity Tracker</h1>
+            <p class="mt-2 text-gray-600">Log your activities, see your progress, and get AI-powered insights.</p>
+        </header>
+        <main>
+            <!-- All HTML sections (monthly-summary, summary, chart-section, weeks-container) are the same as the previous PHP version -->
+            <section id="monthly-summary" class="mb-8 hidden">
+                <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-2xl font-bold text-gray-900">Monthly Summary (Weeks 1-5)</h2>
+                     <button id="get-monthly-insights-btn" class="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition duration-300 shadow-sm">
+                        ✨ Get Monthly AI Review
+                     </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="summary-card">
+                        <h3 class="text-gray-500 font-semibold">Total Monthly Minutes</h3>
+                        <p id="monthly-total-minutes" class="text-3xl font-bold text-purple-600">0</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3 class="text-gray-500 font-semibold">Total Monthly Distance (km)</h3>
+                        <p id="monthly-total-distance" class="text-3xl font-bold text-purple-600">0.0</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3 class="text-gray-500 font-semibold">Avg. Completion</h3>
+                        <p id="monthly-avg-completion" class="text-3xl font-bold text-purple-600">0%</p>
+                    </div>
+                     <div class="summary-card">
+                        <h3 class="text-gray-500 font-semibold">Longest Run (km)</h3>
+                        <p id="monthly-longest-run" class="text-3xl font-bold text-purple-600">0.0</p>
+                    </div>
+                </div>
+                <div class="summary-card mt-6">
+                    <h3 class="text-gray-600 font-semibold mb-4 text-lg">Weekly Progress (First 5 Weeks)</h3>
+                    <div class="chart-container">
+                        <canvas id="monthly-progress-chart"></canvas>
+                    </div>
+                </div>
+                 <div id="monthly-insights-container" class="summary-card mt-4 hidden">
+                    <h3 class="text-gray-600 font-semibold mb-2 text-lg">Your AI-Powered Monthly Review</h3>
+                    <div class="insights-loader text-center hidden"><div class="spinner"></div><p class="text-gray-500">Your coach is analyzing your month...</p></div>
+                    <div class="insights-result text-gray-800 prose prose-sm max-w-none"></div>
+                </div>
+            </section>
+
+            <section id="summary" class="mb-8">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Active Week Summary</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="summary-card"><h3 class="text-gray-500 font-semibold">Total Minutes Ran</h3><p id="total-minutes" class="text-3xl font-bold text-blue-600">0</p></div>
+                    <div class="summary-card"><h3 class="text-gray-500 font-semibold">Total Distance (km)</h3><p id="total-distance" class="text-3xl font-bold text-blue-600">0.0</p></div>
+                    <div class="summary-card"><h3 class="text-gray-500 font-semibold">Weekly Completion</h3><p id="weekly-completion" class="text-3xl font-bold text-blue-600">0%</p></div>
+                </div>
+            </section>
+
+            <section id="chart-section" class="mb-8">
+                 <div class="summary-card">
+                    <h3 class="text-gray-600 font-semibold mb-4 text-lg">Daily Duration (Planned vs. Actual)</h3>
+                    <div class="chart-container"><canvas id="progress-chart"></canvas></div>
+                </div>
+            </section>
+            
+            <div id="weeks-container"></div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            // --- DATA & STATE ---
+            let allWeeksData = [];
+            let activeWeekIndex = 0;
+            let chartInstance = null;
+            let monthlyChartInstance = null;
+            const weeksContainer = document.getElementById('weeks-container');
+
+            const initialWeekPlan = () => [
+                { day: 'Monday', planned: 'Jog', duration: 20, actualActivity: null, actualDuration: null, distance: null, notes: null, completed: null },
+                { day: 'Tuesday', planned: 'Jog', duration: 25, actualActivity: null, actualDuration: null, distance: null, notes: null, completed: null },
+                { day: 'Wednesday', planned: 'Walk', duration: 30, actualActivity: null, actualDuration: null, distance: null, notes: null, completed: null },
+                { day: 'Thursday', planned: 'Jog', duration: 25, actualActivity: null, actualDuration: null, distance: null, notes: null, completed: null },
+                { day: 'Friday', planned: 'Rest', duration: 0, actualActivity: 'Rest', actualDuration: 0, distance: 0, notes: 'Busy day!', completed: 'Yes' },
+                { day: 'Saturday', planned: 'Jog', duration: 35, actualActivity: null, actualDuration: null, distance: null, notes: null, completed: null },
+                { day: 'Sunday', planned: 'Rest', duration: 0, actualActivity: 'Rest', actualDuration: 0, distance: 0, notes: '', completed: 'Yes' }
+            ];
+
+            // --- SERVER COMMUNICATION ---
+            async function callApi(body) {
+                const response = await fetch('/.netlify/functions/api', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+                return response.json();
+            }
+
+            async function loadData() {
+                const rawData = await callApi({ action: 'getData' });
+
+                if (rawData.length === 0) {
+                    // First time user, add the initial week.
+                    const new_week_number = 1;
+                    const planForJS = initialWeekPlan();
+                    const planForDB = planForJS.map(d => ({...d, day_of_week: d.day, planned_activity: d.planned, planned_duration: d.duration }));
+                    await callApi({ action: 'addWeek', new_week_number: new_week_number, initialPlan: planForDB });
+                    allWeeksData = [planForJS];
+                } else {
+                    // Structure data from DB into weeks
+                    const weeks = {};
+                    rawData.forEach(row => {
+                        const weekNum = row.week_number - 1;
+                        if (!weeks[weekNum]) weeks[weekNum] = [];
+                        weeks[weekNum].push({
+                            day: row.day_of_week, planned: row.planned_activity, duration: row.planned_duration,
+                            actualActivity: row.actual_activity, actualDuration: row.actual_duration, distance: row.distance_km,
+                            notes: row.notes, completed: row.completed
+                        });
+                    });
+                    allWeeksData = Object.values(weeks);
+                }
+                activeWeekIndex = allWeeksData.length - 1;
+                renderActiveWeekUI();
+                checkAndRenderMonthlySummary();
+            }
+            
+            // --- UI & LOGIC ---
+            function renderActiveWeekUI() {
+                weeksContainer.innerHTML = '';
+                if (allWeeksData.length === 0) return;
+
+                const weekData = allWeeksData[activeWeekIndex];
+                const isPastWeek = activeWeekIndex < allWeeksData.length - 1;
+
+                const weekElement = document.createElement('section');
+                weekElement.id = `week-${activeWeekIndex}-section`;
+                weekElement.className = 'mb-8';
+
+                let weekHeaderHtml = `
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center">
+                             <select id="week-selector" class="text-2xl font-bold text-gray-900 bg-gray-50 border-0 focus:ring-0 focus:outline-none cursor-pointer p-2">
+                                ${allWeeksData.map((_, index) => `<option value="${index}" ${index === activeWeekIndex ? 'selected' : ''}>Week ${index + 1} Log</option>`).join('')}
+                             </select>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button data-week-index="${activeWeekIndex}" class="get-insights-btn bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 shadow-sm">
+                                ✨ Get AI Insights
+                            </button>
+                            ${!isPastWeek ? `<button id="add-week-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition duration-300 shadow-sm">➕ Add Week</button>` : ''}
+                        </div>
+                    </div>`;
+
+                let tableHtml = `
+                    <div class="overflow-x-auto bg-white rounded-lg shadow border border-gray-200">
+                        <table class="w-full text-sm text-left text-gray-600">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3">Day</th><th scope="col" class="px-4 py-3">Planned Activity</th><th scope="col" class="px-4 py-3">Actual Activity</th>
+                                    <th scope="col" class="px-4 py-3">Actual Duration (mins)</th><th scope="col" class="px-4 py-3">Distance (km)</th><th scope="col" class="px-4 py-3">Pace (min/km)</th>
+                                    <th scope="col" class="px-4 py-3">Notes / How I Felt</th><th scope="col" class="px-4 py-3">Completed?</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                weekData.forEach((dayData, dayIndex) => {
+                    const isRestDay = dayData.planned === 'Rest';
+                    const isDisabled = isPastWeek || isRestDay;
+                    tableHtml += `
+                        <tr id="row-${activeWeekIndex}-${dayIndex}" class="border-b hover:bg-gray-50 ${dayData.completed === 'Yes' ? 'completed-row' : ''}">
+                            <td class="px-4 py-2 font-medium text-gray-900">${dayData.day}</td>
+                            <td class="px-4 py-2">${dayData.planned} (${dayData.duration} mins)</td>
+                            <td class="px-4 py-2">
+                                <select class="table-select activity-input" data-day-index="${dayIndex}" ${isDisabled ? 'disabled' : ''}>
+                                    <option value="" ${!dayData.actualActivity ? 'selected' : ''}></option>
+                                    <option value="Jog" ${dayData.actualActivity === 'Jog' ? 'selected' : ''}>Jog</option>
+                                    <option value="Walk" ${dayData.actualActivity === 'Walk' ? 'selected' : ''}>Walk</option>
+                                    <option value="Stretching" ${dayData.actualActivity === 'Stretching' ? 'selected' : ''}>Stretching</option>
+                                    <option value="Rest" ${dayData.actualActivity === 'Rest' ? 'selected' : ''}>Rest</option>
+                                </select>
+                            </td>
+                            <td class="px-4 py-2"><input type="number" value="${dayData.actualDuration || ''}" min="0" class="table-input duration-input" placeholder="0" data-day-index="${dayIndex}" ${isDisabled ? 'disabled' : ''}></td>
+                            <td class="px-4 py-2"><input type="number" value="${dayData.distance || ''}" min="0" step="0.1" class="table-input distance-input" placeholder="0.0" data-day-index="${dayIndex}" ${isDisabled ? 'disabled' : ''}></td>
+                            <td class="px-4 py-2 pace-output" data-day-index="${dayIndex}">${isRestDay ? 'N/A' : '0.00'}</td>
+                            <td class="px-4 py-2"><input type="text" value="${dayData.notes || ''}" class="table-input notes-input" placeholder="Notes..." data-day-index="${dayIndex}" ${isDisabled ? 'disabled' : ''}></td>
+                            <td class="px-4 py-2">
+                                <select class="table-select completed-input" data-day-index="${dayIndex}" ${isPastWeek ? 'disabled' : ''}>
+                                    <option value="" ${!dayData.completed ? 'selected' : ''}></option>
+                                    <option value="Yes" ${dayData.completed === 'Yes' ? 'selected' : ''}>Yes</option>
+                                    <option value="No" ${dayData.completed === 'No' ? 'selected' : ''}>No</option>
+                                </select>
+                            </td>
+                        </tr>`;
+                });
+
+                tableHtml += `</tbody></table></div>`;
+                const insightsContainerHtml = `<div id="insights-container-${activeWeekIndex}" class="summary-card mt-4 hidden"><h3 class="text-gray-600 font-semibold mb-2 text-lg">Your AI-Powered Weekly Review</h3><div class="insights-loader text-center hidden"><div class="spinner"></div><p class="text-gray-500">Your coach is analyzing your week...</p></div><div class="insights-result text-gray-800 prose prose-sm max-w-none"></div></div>`;
+                weekElement.innerHTML = weekHeaderHtml + tableHtml + insightsContainerHtml;
+                weeksContainer.appendChild(weekElement);
+                updateCalculationsAndChart();
+            }
+
+            function updateCalculationsAndChart() {
+                const currentWeekData = allWeeksData[activeWeekIndex];
+                let totalMinutes = 0, totalDistance = 0, completedCount = 0;
+
+                currentWeekData.forEach((day, dayIndex) => {
+                    if (day.actualActivity === "Jog" || day.actualActivity === "Walk") {
+                         totalMinutes += Number(day.actualDuration);
+                         totalDistance += Number(day.distance);
+                    }
+                    const paceOutput = document.querySelector(`.pace-output[data-day-index="${dayIndex}"]`);
+                    if (paceOutput && day.distance > 0 && day.actualDuration > 0) {
+                        paceOutput.textContent = (day.actualDuration / day.distance).toFixed(2);
+                    } else if (paceOutput && day.planned !== 'Rest') {
+                        paceOutput.textContent = '0.00';
+                    }
+                    const row = document.getElementById(`row-${activeWeekIndex}-${dayIndex}`);
+                    if (row) {
+                        if (day.completed === 'Yes') {
+                            completedCount++;
+                            row.classList.add('completed-row');
+                        } else row.classList.remove('completed-row');
+                    }
+                });
+                
+                document.getElementById('total-minutes').textContent = totalMinutes;
+                document.getElementById('total-distance').textContent = totalDistance.toFixed(1);
+                document.getElementById('weekly-completion').textContent = `${Math.round((completedCount / currentWeekData.length) * 100)}%`;
+                renderOrUpdateChart(currentWeekData);
+            }
+
+            function renderOrUpdateChart(weekData) {
+                const ctx = document.getElementById('progress-chart').getContext('2d');
+                const labels = weekData.map(d => d.day);
+                const plannedData = weekData.map(d => d.duration);
+                const actualData = weekData.map(d => d.actualDuration);
+                if (chartInstance) {
+                    chartInstance.data.labels = labels;
+                    chartInstance.data.datasets[0].data = plannedData;
+                    chartInstance.data.datasets[1].data = actualData;
+                    chartInstance.update();
+                } else {
+                    chartInstance = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Planned Duration (mins)', data: plannedData, backgroundColor: 'rgba(191, 219, 254, 0.8)', borderColor: 'rgba(59, 130, 246, 1)', borderWidth: 1 }, { label: 'Actual Duration (mins)', data: actualData, backgroundColor: 'rgba(59, 130, 246, 0.8)', borderColor: 'rgba(37, 99, 235, 1)', borderWidth: 1 }] }, options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Minutes' } } } } });
+                }
+            }
+            
+            async function getWeeklyInsights(weekIndex) {
+                const insightsContainer = document.getElementById(`insights-container-${weekIndex}`);
+                const insightsLoader = insightsContainer.querySelector('.insights-loader');
+                const insightsResult = insightsContainer.querySelector('.insights-result');
+                insightsContainer.classList.remove('hidden');
+                insightsLoader.classList.remove('hidden');
+                insightsResult.classList.add('hidden');
+                insightsResult.innerHTML = '';
+                
+                const weekData = allWeeksData[weekIndex];
+                let weeklySummary = `Here is my jogging and activity log for week ${weekIndex + 1}:\n`;
+                weekData.forEach(day => {
+                    if (day.planned !== 'Rest' && day.completed === 'Yes') {
+                        weeklySummary += `- ${day.day}: Planned ${day.planned} for ${day.duration} mins. Did ${day.actualActivity} for ${day.actualDuration} mins, covering ${day.distance} km. Notes: "${day.notes || 'none'}".\n`;
+                    } else if (day.planned !== 'Rest' && (day.completed === 'No' || day.completed === '')) {
+                         weeklySummary += `- ${day.day}: Planned ${day.planned} for ${day.duration} mins, but didn't complete it.\n`;
+                    }
+                });
+
+                const systemPrompt = "You are a friendly and encouraging fitness coach. Analyze the user's weekly jogging data. Provide a short, positive summary of their week, highlight one thing they did well, and offer one simple, actionable tip for the next week. Keep the tone light and motivational. Use markdown for lists.";
+                
+                try {
+                    const result = await callApi({ action: 'getWeeklyInsights', prompt: weeklySummary, systemPrompt: systemPrompt });
+                    if (result.text) insightsResult.innerHTML = marked.parse(result.text);
+                    else insightsResult.textContent = result.error || "Sorry, I couldn't generate insights.";
+                } catch (error) {
+                    console.error("Error calling backend for insights:", error);
+                    insightsResult.textContent = "There was an error getting your insights.";
+                } finally {
+                    insightsLoader.classList.add('hidden');
+                    insightsResult.classList.remove('hidden');
+                }
+            }
+            
+            function checkAndRenderMonthlySummary() {
+                const monthlySummarySection = document.getElementById('monthly-summary');
+                if (allWeeksData.length >= 5) {
+                    monthlySummarySection.classList.remove('hidden');
+                    calculateAndDisplayMonthlyStats();
+                } else {
+                    monthlySummarySection.classList.add('hidden');
+                }
+            }
+
+            function calculateAndDisplayMonthlyStats() {
+                const firstFiveWeeks = allWeeksData.slice(0, 5);
+                let totalMinutes = 0, totalDistance = 0, totalCompleted = 0, totalPossible = 0, longestRun = 0;
+                const chartLabels = [], plannedMinutesData = [], actualMinutesData = [];
+
+                firstFiveWeeks.forEach((week, index) => {
+                    chartLabels.push(`Week ${index + 1}`);
+                    let weeklyPlanned = 0, weeklyActual = 0;
+                    week.forEach(day => {
+                        weeklyPlanned += Number(day.duration);
+                        weeklyActual += Number(day.actualDuration);
+                        if (day.actualActivity === "Jog" || day.actualActivity === "Walk") {
+                            totalMinutes += Number(day.actualDuration);
+                            totalDistance += Number(day.distance);
+                        }
+                        if (day.actualActivity === "Jog" && day.distance > longestRun) longestRun = day.distance;
+                        if (day.completed === 'Yes') totalCompleted++;
+                        totalPossible++;
+                    });
+                    plannedMinutesData.push(weeklyPlanned);
+                    actualMinutesData.push(weeklyActual);
+                });
+                
+                document.getElementById('monthly-total-minutes').textContent = totalMinutes;
+                document.getElementById('monthly-total-distance').textContent = totalDistance.toFixed(1);
+                document.getElementById('monthly-avg-completion').textContent = `${Math.round((totalCompleted / totalPossible) * 100)}%`;
+                document.getElementById('monthly-longest-run').textContent = longestRun.toFixed(1);
+                renderOrUpdateMonthlyChart(chartLabels, plannedMinutesData, actualMinutesData);
+            }
+
+            function renderOrUpdateMonthlyChart(labels, plannedData, actualData) {
+                const ctx = document.getElementById('monthly-progress-chart').getContext('2d');
+                if (monthlyChartInstance) {
+                    monthlyChartInstance.data.labels = labels;
+                    monthlyChartInstance.data.datasets[0].data = plannedData;
+                    monthlyChartInstance.data.datasets[1].data = actualData;
+                    monthlyChartInstance.update();
+                } else {
+                    monthlyChartInstance = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Planned Duration (mins)', data: plannedData, backgroundColor: 'rgba(209, 213, 219, 0.8)', borderColor: 'rgba(107, 114, 128, 1)', borderWidth: 1 }, { label: 'Actual Duration (mins)', data: actualData, backgroundColor: 'rgba(192, 132, 252, 0.8)', borderColor: 'rgba(147, 51, 234, 1)', borderWidth: 1 }] }, options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Total Minutes' } } } } });
+                }
+            }
+            
+            async function getMonthlyInsights() {
+                const insightsContainer = document.getElementById('monthly-insights-container');
+                const insightsLoader = insightsContainer.querySelector('.insights-loader');
+                const insightsResult = insightsContainer.querySelector('.insights-result');
+                insightsContainer.classList.remove('hidden');
+                insightsLoader.classList.remove('hidden');
+                insightsResult.classList.add('hidden');
+                insightsResult.innerHTML = '';
+                
+                const firstFiveWeeks = allWeeksData.slice(0, 5);
+                let monthlySummaryPrompt = `Here is my jogging and activity log for the last 5 weeks:\n`;
+                firstFiveWeeks.forEach((week, index) => {
+                    monthlySummaryPrompt += `\n--- Week ${index + 1} ---\n`;
+                    week.forEach(day => {
+                         if (day.completed === 'Yes' && day.planned !== 'Rest') {
+                            monthlySummaryPrompt += `- ${day.day}: Did ${day.actualActivity} for ${day.actualDuration} mins, ${day.distance} km.\n`;
+                        }
+                    });
+                });
+
+                const systemPrompt = "You are a friendly and encouraging fitness coach. Analyze the user's 5-week jogging data. Provide a summary of their month's progress, comment on their consistency, highlight a key achievement (like their longest run or overall distance), and offer one strategic tip for the next month. Keep the tone motivational. Use markdown for lists and bolding.";
+                
+                try {
+                    const result = await callApi({ action: 'getMonthlyInsights', prompt: monthlySummaryPrompt, systemPrompt: systemPrompt });
+                    if (result.text) insightsResult.innerHTML = marked.parse(result.text);
+                    else insightsResult.textContent = result.error || "Could not generate a monthly review.";
+                } catch (error) {
+                    console.error("Error calling backend for monthly review:", error);
+                    insightsResult.textContent = "There was an error getting your monthly review.";
+                } finally {
+                    insightsLoader.classList.add('hidden');
+                    insightsResult.classList.remove('hidden');
+                }
+            }
+            
+            // --- EVENT LISTENERS ---
+            weeksContainer.addEventListener('input', async (e) => {
+                if(e.target.matches('.activity-input, .duration-input, .distance-input, .notes-input, .completed-input')) {
+                    const dayIndex = parseInt(e.target.dataset.dayIndex, 10);
+                    const propertyMap = { 'activity-input': 'actualActivity', 'duration-input': 'actualDuration', 'distance-input': 'distance', 'notes-input': 'notes', 'completed-input': 'completed' };
+                    const property = Object.keys(propertyMap).find(cls => e.target.classList.contains(cls));
+                    if (!property) return;
+                    
+                    const jsProperty = propertyMap[property];
+                    let value = e.target.value;
+                    if (jsProperty === 'actualDuration' || jsProperty === 'distance') {
+                        value = parseFloat(value) || 0;
+                    }
+                    
+                    allWeeksData[activeWeekIndex][dayIndex][jsProperty] = value;
+                    updateCalculationsAndChart();
+
+                    const dbColumnMap = {'actualActivity': 'actual_activity', 'actualDuration': 'actual_duration', 'distance': 'distance_km', 'notes': 'notes', 'completed': 'completed'};
+                    const day = allWeeksData[activeWeekIndex][dayIndex];
+                    await callApi({ action: 'updateDay', week_number: activeWeekIndex + 1, day_of_week: day.day, column: dbColumnMap[jsProperty], value: value });
+                }
+            });
+
+            weeksContainer.addEventListener('click', async (e) => {
+                if (e.target.matches('.get-insights-btn')) getWeeklyInsights(parseInt(e.target.dataset.weekIndex, 10));
+                if (e.target.matches('#add-week-btn')) {
+                    const new_week_number = allWeeksData.length + 1;
+                    const planForJS = initialWeekPlan();
+                    const planForDB = planForJS.map(d => ({...d, day_of_week: d.day, planned_activity: d.planned, planned_duration: d.duration }));
+                    await callApi({ action: 'addWeek', new_week_number: new_week_number, initialPlan: planForDB });
+                    allWeeksData.push(planForJS);
+                    activeWeekIndex = allWeeksData.length - 1;
+                    renderActiveWeekUI();
+                    checkAndRenderMonthlySummary();
+                }
+            });
+
+            weeksContainer.addEventListener('change', (e) => {
+                if (e.target.matches('#week-selector')) {
+                    activeWeekIndex = parseInt(e.target.value, 10);
+                    renderActiveWeekUI();
+                }
+            });
+
+            document.getElementById('monthly-summary').addEventListener('click', (e) => {
+                if(e.target.matches('#get-monthly-insights-btn')) getMonthlyInsights();
+            });
+            
+            // --- INITIAL LOAD ---
+            loadData();
+        });
+    </script>
+</body>
+</html>
+
